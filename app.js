@@ -2,7 +2,7 @@ var express = require('express')
 var mysql = require('mysql');
 var bodyParser = require('body-parser')
 var async = require('async')
-var cryptoverseVerify = require('./lib/cryptoverse/verify.js')
+var verify = require('./lib/cryptoverse/verify.js')
 var app = express()
 
 var pool = mysql.createPool(
@@ -15,7 +15,7 @@ var pool = mysql.createPool(
 	debug    : false
 });
 
-app.use(bodyParser.json());
+app.use(bodyParser.json()) 
 
 function queryStarlog(query, callback) 
 {
@@ -46,9 +46,39 @@ function queryStarlog(query, callback)
 
 app.post('/star-logs', function (req, res) 
 {
-	console.log(req.body)
-	cryptoverseVerify.verifyStarlog(req.body[0])
-	res.send("todo: everything")
+	async.waterfall(
+	[
+		function(callback)
+		{
+			try
+			{
+				for (i = 0; i < req.body.length; i++) 
+				{
+					if (!verify.verifyStarlog(req.body[i])) 
+					{
+						callback("Invalid block")
+						return
+					}
+	    		}
+    		}
+    		catch (exception)
+    		{
+    			callback("Bad body")
+    			return
+    		}
+    		callback(null)
+		}
+	], 
+		function (err) {
+			if (err)
+			{
+				console.log(err)
+				res.json({"code" : 200, "status" : "Error"})
+				return
+			}
+			res.send("Is valid true!")
+		}
+	);
 })
 
 app.get('/star-logs', function (req, res) 
