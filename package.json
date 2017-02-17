@@ -23,6 +23,7 @@
     "async": "^2.1.4",
     "body-parser": "^1.16.1",
     "express": "^4.14.1",
+    "node-forge": "^0.7.0",
     "node-mysql": "^0.4.2",
     "validator": "^6.2.1"
   }

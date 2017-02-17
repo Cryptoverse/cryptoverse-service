@@ -1,48 +1,16 @@
 var express = require('express')
-var mysql = require('mysql');
+var mySqlModule = require('mysql')
 var bodyParser = require('body-parser')
 var async = require('async')
-var verify = require('./lib/cryptoverse/verify.js')
+var forge = require('node-forge')
+var mySql = require('./lib/cryptoverse/mysql')
+var verify = require('./lib/cryptoverse/verify')
 var app = express()
-
-var pool = mysql.createPool(
-{
-	connectionLimit : 100, //important < lol find out why
-	host     : process.env.db_host,
-	user     : process.env.db_username,
-	password : process.env.db_password,
-	database : process.env.db_starlog,
-	debug    : false
-});
 
 app.use(bodyParser.json()) 
 
-function queryStarlog(query, callback) 
-{
-	pool.getConnection(function(err, connection)
-	{
-		if (err) 
-		{
-			if (connection != null) connection.release()
-			res.json({"code" : 100, "status" : "Error in connection database"})
-			return
-		}   
-
-		console.log('connected as id ' + connection.threadId)
-		// "select * from star_logs"
-		connection.query(query,function(err, rows) 
-		{
-			connection.release()
-			callback(err, rows)
-		})
-
-		connection.on('error', function(err) 
-		{      
-			res.json({"code" : 100, "status" : "Error in connection database"})
-			return
-		})
-	})
-}
+mySql.initialize(mySqlModule)
+verify.initialize(forge)
 
 app.post('/star-logs', function (req, res) 
 {
@@ -54,29 +22,25 @@ app.post('/star-logs', function (req, res)
 			{
 				for (i = 0; i < req.body.length; i++) 
 				{
-					if (!verify.verifyStarlog(req.body[i])) 
-					{
-						callback("Invalid block")
-						return
-					}
+					verify.verifyStarlogFields(req.body[i], 'star_log['+i+']')
 	    		}
     		}
     		catch (exception)
     		{
-    			callback("Bad body")
+    			callback(exception)
     			return
     		}
     		callback(null)
 		}
 	], 
-		function (err) {
-			if (err)
+		function (error) {
+			if (error)
 			{
-				console.log(err)
-				res.json({"code" : 200, "status" : "Error"})
+				console.log(error)
+				res.json({'code' : 200, 'status' : process.env.debug ? error : 'error'})
 				return
 			}
-			res.send("Is valid true!")
+			res.send("Is valid true")
 		}
 	);
 })
@@ -87,14 +51,14 @@ app.get('/star-logs', function (req, res)
 	[
 		function(callback) 
 		{
-			queryStarlog("SELECT * FROM star_logs LIMIT 5", callback)
+			mySql.query("SELECT * FROM star_logs LIMIT 5", callback)
 		}
 	], 
-		function (err, rows) {
-			if (err)
+		function (error, rows) {
+			if (error)
 			{
-				console.log(err)
-				res.json({"code" : 200, "status" : "Error"})
+				console.log(error)
+				res.json({'code' : 200, 'status' : process.env.debug ? error : 'error'})
 				return
 			}
 			res.send(rows)
@@ -104,5 +68,6 @@ app.get('/star-logs', function (req, res)
 
 app.listen(3000, function () 
 {
-	console.log('Cryptoverse service listening on port 3000!')
+	if (process.env.debug) console.log('Debug cryptoverse service listening on port 3000')
+	else console.log('Cryptoverse service listening on port 3000')
 })
